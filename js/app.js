@@ -1215,9 +1215,106 @@ function renameWaypoints() {
   });
 }
 
-function simulateVibration() {
-  logIncident('warning', 'Vibrasi motor 3 terdeteksi: 35 m/s²');
-  addRealtimeLog('warning', 'Vibrasi motor 3: 35 m/s² (Batas: 30 m/s²)');
+// AI Suggestions Options State
+let selectedAIOption = null;
+let currentActiveOptions = [];
+
+function selectAIOptionCard(element, index) {
+  const cards = element.parentElement.querySelectorAll('.ai-option-card');
+  cards.forEach(card => card.classList.remove('selected'));
+  element.classList.add('selected');
+  selectedAIOption = currentActiveOptions[index];
+}
+
+function applySelectedAIAction() {
+  if (!selectedAIOption) {
+    showNotification('Pilih salah satu tindakan terlebih dahulu');
+    return;
+  }
+  
+  const modal = document.getElementById('alertOverlay');
+  const modalContent = modal.querySelector('.alert-modal');
+  
+  // Transition modal to transmission state
+  modalContent.className = 'alert-modal transmission';
+  
+  // Hide actions panel
+  modalContent.querySelector('.alert-actions').style.display = 'none';
+  
+  // Render uplink loader
+  modalContent.querySelector('.alert-header').innerHTML = `
+    <div class="alert-header-title" style="color: var(--primary);">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="loading">
+        <path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/>
+        <path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M11 17v.01"/>
+      </svg>
+      <span>TRANSMISI INSTRUKSI AI</span>
+    </div>
+    <span class="alert-timestamp">Telemetri Uplink</span>
+  `;
+  
+  modalContent.querySelector('.alert-content').innerHTML = `
+    <div class="transmission-loader">
+      <div class="transmission-spinner">
+        <div class="transmission-ring"></div>
+        <svg class="transmission-radar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <div class="transmission-status-title">Mentransmisikan Komando ke UAV...</div>
+      <div class="transmission-status-desc">Membangun koneksi telemetri secure...</div>
+      <div class="transmission-progress-bar">
+        <div class="transmission-progress-fill" id="transmissionFill" style="width: 0%"></div>
+      </div>
+    </div>
+  `;
+  
+  const fill = document.getElementById('transmissionFill');
+  const desc = modalContent.querySelector('.transmission-status-desc');
+  const title = modalContent.querySelector('.transmission-status-title');
+  
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += 10;
+    if (fill) fill.style.width = progress + '%';
+    
+    if (progress === 30) {
+      if (desc) desc.textContent = 'Mengenkripsi paket data komando...';
+    } else if (progress === 60) {
+      if (desc) desc.textContent = 'Mengirim uplink sinyal ke UAV-01...';
+    } else if (progress === 90) {
+      if (desc) desc.textContent = 'Memverifikasi komando otonom...';
+    }
+    
+    if (progress >= 100) {
+      clearInterval(interval);
+      if (desc) desc.textContent = 'Koneksi aman. Komando berhasil dieksekusi!';
+      if (title) title.textContent = 'Transmisi Selesai';
+      
+      setTimeout(() => {
+        // Restore actions panel and close modal
+        modalContent.querySelector('.alert-actions').style.display = 'flex';
+        dismissAlert();
+        
+        // Execute the action callback
+        if (selectedAIOption && typeof selectedAIOption.callback === 'function') {
+          selectedAIOption.callback();
+        }
+      }, 600);
+    }
+  }, 120);
+}
+
+function switchToManualMode() {
+  logIncident('warning', 'GPS hilang - switch ke mode manual');
+  showNotification('Mode manual diaktifkan');
+  const modeBadge = document.getElementById('modeBadge');
+  const flightModeBadge = document.getElementById('flightModeBadge');
+  if (modeBadge) modeBadge.textContent = 'MANUAL';
+  if (flightModeBadge) flightModeBadge.textContent = 'MANUAL';
+}
+
+function showAccidentAIModal(config) {
   const modal = document.getElementById('alertOverlay');
   const modalContent = modal.querySelector('.alert-modal');
   const header = modal.querySelector('.alert-header');
@@ -1227,297 +1324,340 @@ function simulateVibration() {
   const now = new Date();
   timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   
-  modal.classList.remove('warning', 'critical');
-  modalContent.classList.remove('warning', 'critical');
-  modalContent.classList.add('warning');
+  modal.className = `alert-overlay active`;
+  modalContent.className = `alert-modal ${config.alertType}`;
   
-  header.querySelector('.alert-header-title').className = 'alert-header-title warning';
+  header.querySelector('.alert-header-title').className = `alert-header-title ${config.alertType}`;
   header.querySelector('.alert-header-title').innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-      <line x1="12" y1="9" x2="12" y2="13"/>
-      <line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg>
-    <span>ANOMALI TERDETEKSI</span>`;
+    ${config.headerIconHTML}
+    <span>${config.headerTitle}</span>
+  `;
+  
+  currentActiveOptions = config.options;
+  const recommendedOption = config.options.find(opt => opt.recommended) || config.options[0];
+  selectedAIOption = recommendedOption;
+  
+  const detailsHTML = config.details.map(detail => `<span>${detail}</span>`).join('');
+  
+  let optionsHTML = '';
+  config.options.forEach((opt, idx) => {
+    const isSelected = opt === recommendedOption;
+    const isRec = opt.recommended;
+    const confClass = opt.confidence >= 80 ? 'confidence-high' : (opt.confidence >= 50 ? 'confidence-medium' : 'confidence-low');
+    const confLabel = opt.confidence >= 80 ? 'Tinggi' : (opt.confidence >= 50 ? 'Sedang' : 'Rendah');
+    
+    optionsHTML += `
+      <div class="ai-option-card ${isSelected ? 'selected' : ''} ${isRec ? 'recommended' : ''}" 
+           data-idx="${idx}" onclick="selectAIOptionCard(this, ${idx})">
+        <div class="ai-option-check">
+          <span class="radio-dot"></span>
+        </div>
+        <div class="ai-option-info">
+          <div class="ai-option-title">
+            ${opt.title}
+            ${isRec ? '<span class="badge badge-recommended">Rekomendasi AI</span>' : ''}
+          </div>
+          <div class="ai-option-desc">${opt.desc}</div>
+        </div>
+        <div class="ai-option-confidence">
+          <span class="confidence-badge ${confClass}">${opt.confidence}%</span>
+          <span class="confidence-lbl">${confLabel}</span>
+        </div>
+      </div>
+    `;
+  });
   
   content.innerHTML = `
-    <h3 class="alert-title">Peringatan Vibrasi Tinggi</h3>
-    <p class="alert-description">Vibrasi motor 3: 35 m/s² (Batas: 30 m/s²)</p>
+    <h3 class="alert-title">${config.title}</h3>
+    <p class="alert-description">${config.description}</p>
     <div class="alert-details">
-      <span>Motor 3 mengalami vibrasi abnormal</span>
-      <span>Dapat menyebabkan kerusakan motor atau ketidakstabilan</span>
+      ${detailsHTML}
     </div>
-    <div class="alert-recommendation">
-      <span class="alert-recommendation-text">Tindakan yang Disarankan: Return to Launch</span>
-      <div class="confidence-indicator">
-        <svg class="confidence-ring" viewBox="0 0 60 60">
-          <circle class="bg" cx="30" cy="30" r="25"/>
-          <circle class="progress" cx="30" cy="30" r="25" style="stroke-dashoffset: 9;"/>
-        </svg>
-        <span class="confidence-value">94%</span>
-      </div>
-    </div>`;
+    <div class="ai-recommendation-header">Rekomendasi Tindakan AI</div>
+    <div class="ai-options-list">
+      ${optionsHTML}
+    </div>
+  `;
   
+  modal.querySelector('.alert-actions').style.display = 'flex';
   modal.querySelector('.alert-actions').innerHTML = `
     <button class="btn btn-dismiss" onclick="dismissAlert()">Abaikan</button>
-    <button class="btn btn-secondary" onclick="alternativeAction()">Terbang Lebih Rendah</button>
-    <button class="btn btn-primary" onclick="acceptRTL()">Terima RTL</button>`;
+    <button class="btn btn-primary" onclick="applySelectedAIAction()">Terapkan Tindakan AI</button>
+  `;
+}
+
+function simulateVibration() {
+  logIncident('warning', 'Vibrasi motor 3 terdeteksi: 35 m/s²');
+  addRealtimeLog('warning', 'Vibrasi motor 3: 35 m/s² (Batas: 30 m/s²)');
   
-  modal.classList.add('active');
+  showAccidentAIModal({
+    alertType: 'warning',
+    headerTitle: 'ANOMALI TERDETEKSI',
+    headerIconHTML: `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    `,
+    title: 'Peringatan Vibrasi Tinggi',
+    description: 'Vibrasi motor 3: 35 m/s² (Batas: 30 m/s²)',
+    details: [
+      'Motor 3 mengalami vibrasi abnormal di luar batas toleransi safe flight.',
+      'Dapat menyebabkan kegagalan struktur motor, hilangnya stabilitas aerodinamis, atau kerusakan permanen jika dipaksakan.'
+    ],
+    options: [
+      {
+        title: 'Tindakan A: Return to Launch (RTL)',
+        desc: 'Segera arahkan drone kembali ke homepoint awal secara otomatis demi keselamatan.',
+        confidence: 94,
+        recommended: true,
+        callback: acceptRTL
+      },
+      {
+        title: 'Tindakan B: Terbang Lebih Rendah (ECO Mode)',
+        desc: 'Turunkan ketinggian ke 35m dan jalankan mode hemat energi untuk meredam resonansi vibrasi.',
+        confidence: 72,
+        recommended: false,
+        callback: decreaseAltitudeSpeed
+      },
+      {
+        title: 'Tindakan C: Abaikan & Lanjutkan Misi',
+        desc: 'Abaikan getaran dan tetap paksa drone menyelesaikan sisa waypoint jalur penerbangan.',
+        confidence: 15,
+        recommended: false,
+        callback: dismissAlert
+      }
+    ]
+  });
 }
 
 function simulateMotorFailure() {
   logIncident('danger', 'Motor 2 gagal - kehilangan daya dorong sebagian');
   addRealtimeLog('danger', 'KRITIKAL: Motor 2 gagal — kehilangan daya dorong');
-  const modal = document.getElementById('alertOverlay');
-  const modalContent = modal.querySelector('.alert-modal');
-  const header = modal.querySelector('.alert-header');
-  const content = modal.querySelector('.alert-content');
-  const timestamp = document.getElementById('alertTimestamp');
   
-  const now = new Date();
-  timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
-  modal.classList.remove('warning', 'critical');
-  modalContent.classList.remove('warning', 'critical');
-  modalContent.classList.add('critical');
-  
-  header.querySelector('.alert-header-title').className = 'alert-header-title critical';
-  header.querySelector('.alert-header-title').innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="15" y1="9" x2="9" y2="15"/>
-      <line x1="9" y1="9" x2="15" y2="15"/>
-    </svg>
-    <span>KRITIKAL - KEGAGALAN MOTOR</span>`;
-  
-  content.innerHTML = `
-    <h3 class="alert-title">Motor 2 Tidak Merespons</h3>
-    <p class="alert-description">Motor 2 berhenti total. Drone kehilangan daya dorong sebagian.</p>
-    <div class="alert-details">
-      <span>Status Motor 2: GAGAL</span>
-      <span>Tegangan motor: 0V</span>
-      <span>Drone mulai kehilangan kontrol</span>
-    </div>
-    <div class="alert-recommendation">
-      <span class="alert-recommendation-text">Tindakan Darurat: Landing Sekarang</span>
-      <div class="confidence-indicator">
-        <svg class="confidence-ring" viewBox="0 0 60 60">
-          <circle class="bg" cx="30" cy="30" r="25"/>
-          <circle class="progress" cx="30" cy="30" r="25" style="stroke-dashoffset: 2;"/>
-        </svg>
-        <span class="confidence-value">98%</span>
-      </div>
-    </div>`;
-  
-  modal.querySelector('.alert-actions').innerHTML = `
-    <button class="btn btn-danger" onclick="emergencyLanding()">Landing Sekarang</button>
-    <button class="btn btn-primary" onclick="acceptRTL()">Emergency RTL</button>`;
-  
-  modal.classList.add('active');
+  showAccidentAIModal({
+    alertType: 'critical',
+    headerTitle: 'KRITIKAL - KEGAGALAN MOTOR',
+    headerIconHTML: `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+    `,
+    title: 'Motor 2 Tidak Merespons',
+    description: 'Motor 2 berhenti total. UAV kehilangan daya dorong aerodinamis sebagian.',
+    details: [
+      'Status Motor 2: GAGAL (Tegangan: 0V).',
+      'Drone berada dalam kondisi instabil parah. Risiko jatuh sangat tinggi jika penerbangan dipaksakan secara horisontal.'
+    ],
+    options: [
+      {
+        title: 'Tindakan A: Landing Darurat Sekarang',
+        desc: 'Segera lakukan pendaratan darurat vertikal di lokasi saat ini untuk mengamankan UAV.',
+        confidence: 98,
+        recommended: true,
+        callback: emergencyLanding
+      },
+      {
+        title: 'Tindakan B: Emergency Return to Launch (RTL)',
+        desc: 'Coba kembali ke titik awal (HOME) secara perlahan menggunakan sisa 3 motor. Berisiko jatuh di rute.',
+        confidence: 45,
+        recommended: false,
+        callback: acceptRTL
+      },
+      {
+        title: 'Tindakan C: Pertahankan Ketinggian (Hover)',
+        desc: 'Melayang di tempat untuk mencoba menstabilkan sensor sebelum mengambil keputusan tindakan lanjut.',
+        confidence: 12,
+        recommended: false,
+        callback: dismissAlert
+      }
+    ]
+  });
 }
 
 function simulateLowBattery() {
   logIncident('warning', 'Baterai rendah: 15%');
   addRealtimeLog('warning', 'Baterai rendah: 15% — ~3 menit tersisa');
-  const modal = document.getElementById('alertOverlay');
-  const modalContent = modal.querySelector('.alert-modal');
-  const header = modal.querySelector('.alert-header');
-  const content = modal.querySelector('.alert-content');
-  const timestamp = document.getElementById('alertTimestamp');
   
-  const now = new Date();
-  timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
-  modal.classList.remove('warning', 'critical');
-  modalContent.classList.remove('warning', 'critical');
-  modalContent.classList.add('warning');
-  
-  header.querySelector('.alert-header-title').className = 'alert-header-title warning';
-  header.querySelector('.alert-header-title').innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-      <line x1="12" y1="2" x2="12" y2="12"/>
-    </svg>
-    <span>PERINGATAN BATERAI</span>`;
-  
-  content.innerHTML = `
-    <h3 class="alert-title">Baterai Menipis</h3>
-    <p class="alert-description">Tingkat baterai: 15% (2 sel)</p>
-    <div class="alert-details">
-      <span>Waktu terbang tersisa: ~3 menit</span>
-      <span>Rekomendasi: Segera kembali ke titik awal</span>
-    </div>
-    <div class="alert-recommendation">
-      <span class="alert-recommendation-text">Tindakan yang Disarankan: Return to Launch</span>
-      <div class="confidence-indicator">
-        <svg class="confidence-ring" viewBox="0 0 60 60">
-          <circle class="bg" cx="30" cy="30" r="25"/>
-          <circle class="progress" cx="30" cy="30" r="25" style="stroke-dashoffset: 35;"/>
-        </svg>
-        <span class="confidence-value">78%</span>
-      </div>
-    </div>`;
-  
-  modal.querySelector('.alert-actions').innerHTML = `
-    <button class="btn btn-dismiss" onclick="dismissAlert()">Abaikan</button>
-    <button class="btn btn-secondary" onclick="alternativeAction()">Lanjutkan Misi</button>
-    <button class="btn btn-primary" onclick="acceptRTL()">Terima RTL</button>`;
-  
-  modal.classList.add('active');
+  showAccidentAIModal({
+    alertType: 'warning',
+    headerTitle: 'PERINGATAN BATERAI',
+    headerIconHTML: `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+        <line x1="12" y1="2" x2="12" y2="12"/>
+      </svg>
+    `,
+    title: 'Baterai Menipis',
+    description: 'Tingkat baterai: 15% (2 sel)',
+    details: [
+      'Waktu terbang tersisa diestimasi hanya ~3 menit.',
+      'Sangat disarankan untuk segera kembali ke titik awal (HOME) sebelum daya baterai drop di bawah batas minimal 10%.'
+    ],
+    options: [
+      {
+        title: 'Tindakan A: Return to Launch (RTL)',
+        desc: 'Segera aktifkan RTL otomatis untuk memulangkan drone dengan sisa daya aman.',
+        confidence: 78,
+        recommended: true,
+        callback: acceptRTL
+      },
+      {
+        title: 'Tindakan B: Pendaratan Darurat Terdekat',
+        desc: 'Lakukan pendaratan darurat instan di lokasi aman terdekat daripada memaksakan kembali.',
+        confidence: 65,
+        recommended: false,
+        callback: emergencyLanding
+      },
+      {
+        title: 'Tindakan C: Lanjutkan Misi (Mode Hemat)',
+        desc: 'Paksakan drone melanjutkan misi dengan membatasi penggunaan daya motor dan mematikan pemancar sekunder.',
+        confidence: 40,
+        recommended: false,
+        callback: decreaseAltitudeSpeed
+      }
+    ]
+  });
 }
 
 function simulateGPSLoss() {
   logIncident('danger', 'Sinyal GPS terputus - mode failsafe');
   addRealtimeLog('danger', 'GPS terputus — mode failsafe aktif');
-  const modal = document.getElementById('alertOverlay');
-  const modalContent = modal.querySelector('.alert-modal');
-  const header = modal.querySelector('.alert-header');
-  const content = modal.querySelector('.alert-content');
-  const timestamp = document.getElementById('alertTimestamp');
   
-  const now = new Date();
-  timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
-  modal.classList.remove('warning', 'critical');
-  modalContent.classList.remove('warning', 'critical');
-  modalContent.classList.add('critical');
-  
-  header.querySelector('.alert-header-title').className = 'alert-header-title critical';
-  header.querySelector('.alert-header-title').innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="2" y1="12" x2="22" y2="12"/>
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-    </svg>
-    <span>GPS HILANG</span>`;
-  
-  content.innerHTML = `
-    <h3 class="alert-title">Sinyal GPS Terputus</h3>
-    <p class="alert-description">Drone kehilangan koneksi GPS. Mode failsafe diaktifkan.</p>
-    <div class="alert-details">
-      <span>Satelit terlihat: 0</span>
-      <span>Mode: Failsafe (Hover)</span>
-      <span>Drone mempertahankan posisi terakhir</span>
-    </div>
-    <div class="alert-recommendation">
-      <span class="alert-recommendation-text">Tindakan: Coba sambungkan ulang atau manual control</span>
-      <div class="confidence-indicator">
-        <svg class="confidence-ring" viewBox="0 0 60 60">
-          <circle class="bg" cx="30" cy="30" r="25"/>
-          <circle class="progress" cx="30" cy="30" r="25" style="stroke-dashoffset: 5;"/>
-        </svg>
-        <span class="confidence-value">96%</span>
-      </div>
-    </div>`;
-  
-  modal.querySelector('.alert-actions').innerHTML = `
-    <button class="btn btn-dismiss" onclick="retryGPS()">Coba Sambung Ulang</button>
-    <button class="btn btn-secondary" onclick="alternativeAction()">Mode Manual</button>
-    <button class="btn btn-primary" onclick="acceptRTL()">RTL</button>`;
-  
-  modal.classList.add('active');
+  showAccidentAIModal({
+    alertType: 'critical',
+    headerTitle: 'GPS HILANG',
+    headerIconHTML: `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+    `,
+    title: 'Sinyal GPS Terputus',
+    description: 'Drone kehilangan koneksi GPS. Failsafe Hover otomatis aktif.',
+    details: [
+      'Satelit terlihat: 0. Akurasi penentuan posisi spasial hilang.',
+      'Drone saat ini mempertahankan posisi melayang secara inersia. Memerlukan intervensi pilot.'
+    ],
+    options: [
+      {
+        title: 'Tindakan A: Aktifkan Mode Manual (Kopilot)',
+        desc: 'Serahkan kendali pilot sepenuhnya secara manual menggunakan stasiun bumi via modul inersia.',
+        confidence: 96,
+        recommended: true,
+        callback: switchToManualMode
+      },
+      {
+        title: 'Tindakan B: Hubungkan Ulang Modul GPS',
+        desc: 'Inisialisasi ulang driver GPS pada UAV jarak jauh untuk memindai kembali satelit.',
+        confidence: 85,
+        recommended: false,
+        callback: retryGPS
+      },
+      {
+        title: 'Tindakan C: Return to Launch (RTL Inersia)',
+        desc: 'Paksa drone kembali menggunakan modul inersia dan kompas tanpa kalibrasi spasial GPS (Berisiko tinggi terbawa angin).',
+        confidence: 60,
+        recommended: false,
+        callback: acceptRTL
+      }
+    ]
+  });
 }
 
 function simulateWindGust() {
   logIncident('warning', 'Angin kuat terdeteksi: 45 km/jam');
   addRealtimeLog('warning', 'Angin kuat: 45 km/jam (Batas: 35 km/jam)');
-  const modal = document.getElementById('alertOverlay');
-  const modalContent = modal.querySelector('.alert-modal');
-  const header = modal.querySelector('.alert-header');
-  const content = modal.querySelector('.alert-content');
-  const timestamp = document.getElementById('alertTimestamp');
   
-  const now = new Date();
-  timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
-  modal.classList.remove('warning', 'critical');
-  modalContent.classList.remove('warning', 'critical');
-  modalContent.classList.add('warning');
-  
-  header.querySelector('.alert-header-title').className = 'alert-header-title warning';
-  header.querySelector('.alert-header-title').innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
-    </svg>
-    <span>PERINGATAN ANGIN</span>`;
-  
-  content.innerHTML = `
-    <h3 class="alert-title">Angin Kuat Terdeteksi</h3>
-    <p class="alert-description">Kecepatan angin: 45 km/jam (Batas aman: 35 km/jam)</p>
-    <div class="alert-details">
-      <span>Arah angin: Barat Daya</span>
-      <span>Drone mungkin sulit mempertahankan posisi</span>
-      <span>Rekomendasi: Turunkan altitude atau kembali</span>
-    </div>
-    <div class="alert-recommendation">
-      <span class="alert-recommendation-text">Tindakan yang Disarankan: Turunkan Altitude</span>
-      <div class="confidence-indicator">
-        <svg class="confidence-ring" viewBox="0 0 60 60">
-          <circle class="bg" cx="30" cy="30" r="25"/>
-          <circle class="progress" cx="30" cy="30" r="25" style="stroke-dashoffset: 25;"/>
-        </svg>
-        <span class="confidence-value">82%</span>
-      </div>
-    </div>`;
-  
-  modal.querySelector('.alert-actions').innerHTML = `
-    <button class="btn btn-dismiss" onclick="dismissAlert()">Abaikan</button>
-    <button class="btn btn-secondary" onclick="lowerAltitudeFromWind()">Turunkan Altitude</button>
-    <button class="btn btn-primary" onclick="acceptRTL()">Kembali ke Titik Awal</button>`;
-  
-  modal.classList.add('active');
+  showAccidentAIModal({
+    alertType: 'warning',
+    headerTitle: 'PERINGATAN ANGIN',
+    headerIconHTML: `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+      </svg>
+    `,
+    title: 'Angin Kuat Terdeteksi',
+    description: 'Kecepatan angin: 45 km/jam (Batas aman: 35 km/jam)',
+    details: [
+      'Arah angin: Barat Daya. UAV terdorong kuat dari rute ideal.',
+      'Rekomendasi: Turunkan ketinggian untuk memotong hambatan aliran angin di lapisan atmosfer atas.'
+    ],
+    options: [
+      {
+        title: 'Tindakan A: Turunkan Altitude (Ke Ketinggian 25m)',
+        desc: 'Turunkan ketinggian terbang ke 25m untuk mencari lapisan udara dengan angin lebih bersahabat.',
+        confidence: 82,
+        recommended: true,
+        callback: lowerAltitudeFromWind
+      },
+      {
+        title: 'Tindakan B: Return to Launch (RTL)',
+        desc: 'Batalkan misi otonom dan pulangkan UAV segera sebelum kehabisan baterai melawan angin.',
+        confidence: 68,
+        recommended: false,
+        callback: acceptRTL
+      },
+      {
+        title: 'Tindakan C: Abaikan & Pertahankan Jalur',
+        desc: 'Tingkatkan rpm motor maksimal untuk memaksakan rute penerbangan saat ini di ketinggian tinggi.',
+        confidence: 30,
+        recommended: false,
+        callback: dismissAlert
+      }
+    ]
+  });
 }
 
 function simulateCommunicationLoss() {
   logIncident('danger', 'Koneksi telemetri terputus');
   addRealtimeLog('danger', 'Koneksi telemetri TERPUTUS — mode autonomous');
-  const modal = document.getElementById('alertOverlay');
-  const modalContent = modal.querySelector('.alert-modal');
-  const header = modal.querySelector('.alert-header');
-  const content = modal.querySelector('.alert-content');
-  const timestamp = document.getElementById('alertTimestamp');
   
-  const now = new Date();
-  timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  
-  modal.classList.remove('warning', 'critical');
-  modalContent.classList.remove('warning', 'critical');
-  modalContent.classList.add('critical');
-  
-  header.querySelector('.alert-header-title').className = 'alert-header-title critical';
-  header.querySelector('.alert-header-title').innerHTML = `
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-      <line x1="1" y1="1" x2="23" y2="23"/>
-    </svg>
-    <span>KOMUNIKASI TERPUTUS</span>`;
-  
-  content.innerHTML = `
-    <h3 class="alert-title">Koneksi Telemetri Hilang</h3>
-    <p class="alert-description">Sinyal kontrol terputus. Drone dalam mode autonomous.</p>
-    <div class="alert-details">
-      <span>Koneksi: TERPUTUS</span>
-      <span>Drone mengaktifkan mode failsafe</span>
-      <span>Menunggu penyambungan ulang...</span>
-    </div>
-    <div class="alert-recommendation">
-      <span class="alert-recommendation-text">Tindakan: Coba sambung ulang atau biarkan drone RTL</span>
-      <div class="confidence-indicator">
-        <svg class="confidence-ring" viewBox="0 0 60 60">
-          <circle class="bg" cx="30" cy="30" r="25"/>
-          <circle class="progress" cx="30" cy="30" r="25" style="stroke-dashoffset: 3;"/>
-        </svg>
-        <span class="confidence-value">97%</span>
-      </div>
-    </div>`;
-  
-  modal.querySelector('.alert-actions').innerHTML = `
-    <button class="btn btn-dismiss" onclick="retryConnection()">Coba Sambung Ulang</button>
-    <button class="btn btn-primary" onclick="acceptRTL()">RTL Otomatis</button>`;
-  
-  modal.classList.add('active');
+  showAccidentAIModal({
+    alertType: 'critical',
+    headerTitle: 'KOMUNIKASI TERPUTUS',
+    headerIconHTML: `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+      </svg>
+    `,
+    title: 'Koneksi Telemetri Hilang',
+    description: 'Sinyal radio link terputus total. UAV beralih ke mode autonomous otonom.',
+    details: [
+      'Status Link Telemetri: TERPUTUS.',
+      'UAV saat ini mengaktifkan mode darurat otonom secara mandiri sesuai failsafe logic.'
+    ],
+    options: [
+      {
+        title: 'Tindakan A: Return to Launch (RTL Otomatis)',
+        desc: 'UAV akan mendeteksi putusnya sinyal secara otonom lalu terbang kembali ke titik HOME awal.',
+        confidence: 97,
+        recommended: true,
+        callback: acceptRTL
+      },
+      {
+        title: 'Tindakan B: Coba Hubungkan Ulang Pemancar',
+        desc: 'Kirim sinyal sinkronisasi ulang transceiver stasiun bumi untuk menyambungkan koneksi telemetri.',
+        confidence: 80,
+        recommended: false,
+        callback: retryConnection
+      },
+      {
+        title: 'Tindakan C: Biarkan Melanjutkan Jalur Misi',
+        desc: 'Biarkan UAV terbang otonom penuh menempuh seluruh rute sisa tanpa pantauan kontrol stasiun bumi.',
+        confidence: 20,
+        recommended: false,
+        callback: dismissAlert
+      }
+    ]
+  });
 }
+
 
 function emergencyLanding() {
   dismissAlert();
