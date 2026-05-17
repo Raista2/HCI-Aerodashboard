@@ -1,0 +1,15 @@
+{
+  "name": "aerodashboard",
+  "version": "1.0.0",
+  "description": "AeroDashboard - Adaptive Task-Based Dashboard for Autonomous UAVs",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve . --port 3000"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
