@@ -742,7 +742,6 @@ function showAIModal() {
 
   modal.querySelector('.alert-actions').innerHTML = `
     <button class="btn btn-dismiss" onclick="dismissAlert()">Tolak</button>
-    <button class="btn btn-secondary" onclick="applyAIAlternative()">Terapkan Rute</button>
     <button class="btn btn-primary" onclick="acceptAIRoute()">Terima Rute AI</button>`;
 
   modal.classList.add('active');
@@ -752,8 +751,8 @@ function showAIModal() {
       center: [-6.1750, 106.8750],
       zoom: 12,
       zoomControl: false,
-      dragging: false,
-      scrollWheelZoom: false
+      dragging: true,
+      scrollWheelZoom: true
     });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -786,10 +785,6 @@ function acceptAIRoute() {
   dismissAlert();
 
   showNotification('Rute AI berhasil diterapkan!');
-}
-
-function applyAIAlternative() {
-  acceptAIRoute();
 }
 
 function dismissAlert() {

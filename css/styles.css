@@ -18,22 +18,22 @@
   --bg-container-high: #202c32;
   --primary-fixed: #a2c9ff;
   --on-primary: #00315b;
-  
-  --font-main: 'Inter', sans-serif;
+
+  --font-main: 'Ubuntu', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
-  
+
   --radius-sm: 4px;
   --radius: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
-  
+
   --spacing-xs: 4px;
   --spacing-sm: 8px;
   --spacing-md: 16px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
-  
+
   --header-height: 56px;
   --footer-height: 48px;
 }
@@ -44,11 +44,21 @@
   box-sizing: border-box;
 }
 
-*:hover, *:active, *:focus {
+button,
+select,
+input,
+textarea {
+  font-family: inherit;
+}
+
+*:hover,
+*:active,
+*:focus {
   pointer-events: auto;
 }
 
-html, body {
+html,
+body {
   pointer-events: auto;
 }
 
@@ -228,7 +238,7 @@ h3 {
   z-index: 1;
 }
 
-.main-content > .screen {
+.main-content>.screen {
   position: relative;
   z-index: 1;
 }
@@ -412,7 +422,7 @@ h3 {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .realtime-log-header {
@@ -420,7 +430,7 @@ h3 {
   align-items: center;
   justify-content: space-between;
   padding: var(--spacing-sm) var(--spacing-md);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
 }
 
@@ -453,8 +463,17 @@ h3 {
 }
 
 @keyframes logPulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--success); }
-  50% { opacity: 0.4; box-shadow: 0 0 2px var(--success); }
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px var(--success);
+  }
+
+  50% {
+    opacity: 0.4;
+    box-shadow: 0 0 2px var(--success);
+  }
 }
 
 .realtime-log-list {
@@ -492,8 +511,15 @@ h3 {
 }
 
 @keyframes logSlideIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .realtime-log-item.log-info {
@@ -582,8 +608,15 @@ h3 {
 }
 
 @keyframes bannerSlideDown {
-  from { opacity: 0; transform: translateY(-12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .mission-complete-content {
@@ -1518,14 +1551,30 @@ h3 {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes pulse-ring {
-  0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.5; }
-  50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.5; }
+  0% {
+    transform: translate(-50%, -50%) scale(0.85);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(0.85);
+    opacity: 0.5;
+  }
 }
 
 .alert-modal.transmission {
@@ -1574,7 +1623,7 @@ h3 {
 
 .leaflet-control-zoom {
   border: none !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 
 .leaflet-control-zoom a {
@@ -1588,12 +1637,19 @@ h3 {
 }
 
 .drone-icon svg {
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 @keyframes bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+  }
 }
 
 .checkbox.checked {
@@ -1617,11 +1673,11 @@ h3 {
   .telemetry-strip {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .map-panel {
     min-height: 350px;
   }
-  
+
   .mission-planner {
     min-height: auto;
   }
@@ -1641,19 +1697,19 @@ h3 {
   .header {
     padding: 0 var(--spacing-md);
   }
-  
+
   .main-content {
     padding: var(--spacing-md);
   }
-  
+
   .preflight-layout {
     gap: var(--spacing-sm);
   }
-  
+
   .telemetry-strip {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .footer {
     flex-wrap: wrap;
     height: auto;
@@ -1661,11 +1717,11 @@ h3 {
     gap: var(--spacing-sm);
     font-size: 12px;
   }
-  
+
   .nav-tabs {
     overflow-x: auto;
   }
-  
+
   .nav-tab {
     padding: 8px 14px;
     font-size: 13px;
@@ -1674,6 +1730,7 @@ h3 {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -1891,4 +1948,3 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
-
