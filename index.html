@@ -326,6 +326,36 @@
           <button class="btn-expand" onclick="expandAI()">^</button>
         </div>
 
+        <!-- Emergency Actions Panel -->
+        <div class="simulation-panel">
+          <h3 class="simulation-title" style="color: var(--danger);">Tindakan Darurat</h3>
+          <div class="simulation-buttons">
+            <button class="btn btn-sim btn-warning" onclick="acceptRTL()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v3.5" />
+              </svg>
+              RTL
+            </button>
+            <button class="btn btn-sim btn-danger" onclick="emergencyLanding()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v14" />
+                <path d="m19 9-7 7-7-7" />
+                <path d="M2 21h20" />
+              </svg>
+              Landing Darurat
+            </button>
+            <button class="btn btn-sim btn-secondary" onclick="switchToManualMode()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="6" width="20" height="12" rx="2" />
+                <circle cx="8" cy="12" r="2" />
+                <circle cx="16" cy="12" r="2" />
+              </svg>
+              Mode Manual
+            </button>
+          </div>
+        </div>
+
         <!-- Simulation Panel -->
         <div class="simulation-panel">
           <h3 class="simulation-title">Simulasi Kejadian</h3>

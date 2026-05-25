@@ -40,13 +40,7 @@ Ini akan menginstall dependencies:
 ### Development Server (Disarankan)
 
 ```bash
-npm start
-```
-
-Atau dengan port berbeda:
-
-```bash
-npm run dev
+npm run start
 ```
 
 Buka browser ke `http://localhost:3000`

@@ -1314,10 +1314,12 @@ function showAccidentAIModal(config) {
   const modalContent = modal.querySelector('.alert-modal');
   const header = modal.querySelector('.alert-header');
   const content = modal.querySelector('.alert-content');
-  const timestamp = document.getElementById('alertTimestamp');
+  let timestamp = document.getElementById('alertTimestamp') || modal.querySelector('.alert-timestamp');
   
-  const now = new Date();
-  timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (timestamp) {
+    const now = new Date();
+    timestamp.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
   
   modal.className = `alert-overlay active`;
   modalContent.className = `alert-modal ${config.alertType}`;
